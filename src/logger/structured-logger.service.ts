@@ -25,6 +25,8 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
  * - Production: OTLP logs to Collector
  * - Always includes trace_id and span_id automatically
  * - Resilience: falls back to console if OTLP fails
+ *
+ * Compatible with NestJS LoggerService interface
  */
 @Injectable({ scope: Scope.TRANSIENT })
 export class StructuredLoggerService implements LoggerService {
@@ -68,40 +70,50 @@ export class StructuredLoggerService implements LoggerService {
 
   /**
    * Debug level log
+   * Compatible with NestJS LoggerService: debug(message, context?) or debug(message, meta?)
    */
-  debug(message: string, meta?: Record<string, unknown>): void {
-    this.writeLog('debug', message, meta);
+  debug(message: unknown, ...optionalParams: unknown[]): void {
+    const { msg, meta } = this.parseLogArgs(message, optionalParams);
+    this.writeLog('debug', msg, meta);
   }
 
   /**
    * Info level log (alias for log)
+   * Compatible with NestJS LoggerService: log(message, context?) or log(message, meta?)
    */
-  log(message: string, meta?: Record<string, unknown>): void {
-    this.writeLog('info', message, meta);
+  log(message: unknown, ...optionalParams: unknown[]): void {
+    const { msg, meta } = this.parseLogArgs(message, optionalParams);
+    this.writeLog('info', msg, meta);
   }
 
   /**
    * Warn level log
+   * Compatible with NestJS LoggerService: warn(message, context?) or warn(message, meta?)
    */
-  warn(message: string, meta?: Record<string, unknown>): void {
-    this.writeLog('warn', message, meta);
+  warn(message: unknown, ...optionalParams: unknown[]): void {
+    const { msg, meta } = this.parseLogArgs(message, optionalParams);
+    this.writeLog('warn', msg, meta);
   }
 
   /**
    * Error level log
+   * Compatible with NestJS LoggerService: error(message, trace?, context?)
    */
-  error(message: string, trace?: string, meta?: Record<string, unknown>): void {
-    this.writeLog('error', message, {
+  error(message: unknown, ...optionalParams: unknown[]): void {
+    const { msg, meta, trace } = this.parseErrorArgs(message, optionalParams);
+    this.writeLog('error', msg, {
       ...meta,
-      stack_trace: trace,
+      ...(trace ? { stack_trace: trace } : {}),
     });
   }
 
   /**
    * Verbose log (mapped to debug)
+   * Compatible with NestJS LoggerService
    */
-  verbose(message: string, meta?: Record<string, unknown>): void {
-    this.writeLog('debug', message, meta);
+  verbose(message: unknown, ...optionalParams: unknown[]): void {
+    const { msg, meta } = this.parseLogArgs(message, optionalParams);
+    this.writeLog('debug', msg, meta);
   }
 
   /**
@@ -113,6 +125,99 @@ export class StructuredLoggerService implements LoggerService {
       error_name: error.name,
       stack_trace: error.stack,
     });
+  }
+
+  /**
+   * Parse log arguments to extract message, context and metadata
+   * NestJS LoggerService can pass: (message), (message, context) or (message, meta)
+   */
+  private parseLogArgs(
+    message: unknown,
+    optionalParams: unknown[],
+  ): { msg: string; meta?: Record<string, unknown> } {
+    const msg = this.stringifyMessage(message);
+
+    if (optionalParams.length === 0) {
+      return { msg };
+    }
+
+    const firstParam = optionalParams[0];
+
+    // If first parameter is a string, it's the context (NestJS standard)
+    if (typeof firstParam === 'string') {
+      return { msg, meta: { context: firstParam } };
+    }
+
+    // If it's an object (but not null/array), it's metadata
+    if (firstParam && typeof firstParam === 'object' && !Array.isArray(firstParam)) {
+      return { msg, meta: firstParam as Record<string, unknown> };
+    }
+
+    // Otherwise, ignore invalid parameters
+    return { msg };
+  }
+
+  /**
+   * Parse error arguments to extract message, trace and context
+   * NestJS LoggerService can pass: (message), (message, trace), (message, trace, context)
+   */
+  private parseErrorArgs(
+    message: unknown,
+    optionalParams: unknown[],
+  ): { msg: string; trace?: string; meta?: Record<string, unknown> } {
+    const msg = this.stringifyMessage(message);
+
+    if (optionalParams.length === 0) {
+      return { msg };
+    }
+
+    let trace: string | undefined;
+    let meta: Record<string, unknown> | undefined;
+
+    const firstParam = optionalParams[0];
+    const secondParam = optionalParams[1];
+
+    // First parameter can be trace (string) or context (string) or meta (object)
+    if (typeof firstParam === 'string') {
+      // If it looks like a stack trace (contains 'at ' or line breaks), it's trace
+      if (firstParam.includes('\n') || firstParam.includes('at ')) {
+        trace = firstParam;
+        // Second parameter can be context
+        if (typeof secondParam === 'string') {
+          meta = { context: secondParam };
+        }
+      } else {
+        // It's context
+        meta = { context: firstParam };
+      }
+    } else if (firstParam && typeof firstParam === 'object' && !Array.isArray(firstParam)) {
+      meta = firstParam as Record<string, unknown>;
+    }
+
+    return { msg, trace, meta };
+  }
+
+  /**
+   * Convert message to string
+   */
+  private stringifyMessage(message: unknown): string {
+    if (typeof message === 'string') {
+      return message;
+    }
+
+    if (message instanceof Error) {
+      return message.message;
+    }
+
+    if (typeof message === 'object') {
+      try {
+        return JSON.stringify(message);
+      } catch {
+        return String(message);
+      }
+    }
+
+    return String(message);
   }
 
   /**
