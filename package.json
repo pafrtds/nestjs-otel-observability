@@ -1,0 +1,114 @@
+{
+  "name": "@pafrtds/nestjs-otel-observability",
+  "version": "1.0.0",
+  "description": "A comprehensive OpenTelemetry observability module for NestJS applications with automatic tracing, structured logging, metrics, and error handling",
+  "author": "Anfitrião Prime",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "nestjs",
+    "opentelemetry",
+    "otel",
+    "observability",
+    "tracing",
+    "metrics",
+    "logging",
+    "distributed-tracing",
+    "rabbitmq",
+    "websocket",
+    "loki",
+    "tempo",
+    "prometheus",
+    "grafana",
+    "apm",
+    "monitoring"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pafrtds/nestjs-otel-observability.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pafrtds/nestjs-otel-observability/issues"
+  },
+  "homepage": "https://github.com/pafrtds/nestjs-otel-observability#readme",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
+  },
+  "peerDependencies": {
+    "@nestjs/common": ">=10.0.0",
+    "@nestjs/core": ">=10.0.0",
+    "reflect-metadata": ">=0.1.0",
+    "rxjs": ">=7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@golevelup/nestjs-rabbitmq": {
+      "optional": true
+    },
+    "@nestjs/websockets": {
+      "optional": true
+    },
+    "@nestjs/platform-socket.io": {
+      "optional": true
+    },
+    "socket.io": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.211.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.69.0",
+    "@opentelemetry/context-async-hooks": "^2.5.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.211.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.211.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+    "@opentelemetry/instrumentation-express": "^0.59.0",
+    "@opentelemetry/instrumentation-http": "^0.211.0",
+    "@opentelemetry/resources": "^2.5.0",
+    "@opentelemetry/sdk-logs": "^0.211.0",
+    "@opentelemetry/sdk-metrics": "^2.5.0",
+    "@opentelemetry/sdk-node": "^0.211.0",
+    "@opentelemetry/sdk-trace-base": "^2.5.0",
+    "@opentelemetry/sdk-trace-node": "^2.5.0",
+    "@opentelemetry/semantic-conventions": "^1.39.0"
+  },
+  "devDependencies": {
+    "@golevelup/nestjs-rabbitmq": "^5.3.0",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/platform-socket.io": "^10.3.10",
+    "@nestjs/testing": "^10.0.0",
+    "@nestjs/websockets": "^10.3.10",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.2",
+    "@types/node": "^20.3.1",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.7.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.1.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
