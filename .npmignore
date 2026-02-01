@@ -24,6 +24,9 @@ node_modules/
 # Build artifacts
 *.tsbuildinfo
 
+# Garantir que dist/ seja incluído no tarball (não ignorar)
+!dist/
+
 # Other
 *.log
 .env*

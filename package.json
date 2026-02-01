@@ -1,6 +1,6 @@
 {
   "name": "@pafrtds/nestjs-otel-observability",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A comprehensive OpenTelemetry observability module for NestJS applications with automatic tracing, structured logging, metrics, and error handling",
   "author": "Anfitrião Prime",
   "license": "MIT",
@@ -32,7 +32,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/pafrtds/nestjs-otel-observability.git"
+    "url": "git+https://github.com/pafrtds/nestjs-otel-observability.git"
   },
   "bugs": {
     "url": "https://github.com/pafrtds/nestjs-otel-observability/issues"
@@ -41,8 +41,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "prepack": "npm run clean && npm run build",
+    "prepublishOnly": "npm run build",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "test": "jest",
