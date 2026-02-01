@@ -1,6 +1,6 @@
 {
   "name": "@pafrtds/nestjs-otel-observability",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A comprehensive OpenTelemetry observability module for NestJS applications with automatic tracing, structured logging, metrics, and error handling",
   "author": "Anfitrião Prime",
   "license": "MIT",

@@ -17,28 +17,26 @@ import {
   CustomSemanticAttributes,
 } from '../../types/observability.types';
 
-// Define AmqpConnection interface to avoid requiring @golevelup/nestjs-rabbitmq as a dependency
-interface AmqpConnectionLike {
-  publish<T>(
-    exchange: string,
-    routingKey: string,
-    message: T,
-    options?: Record<string, unknown>,
-  ): Promise<boolean>;
-}
-
 // Injection token for AmqpConnection (from @golevelup/nestjs-rabbitmq)
 export const AMQP_CONNECTION = 'AMQP_CONNECTION';
 
+// Flag to prevent applying the patch multiple times
+let isPatched = false;
+
+let originalPublish: ((...args: unknown[]) => Promise<boolean>) | null = null;
+
+// We need to dynamically import AmqpConnection to avoid requiring the dependency
+let AmqpConnectionClass: { prototype: { publish: (...args: unknown[]) => Promise<boolean> } } | null = null;
+
 /**
- * Interceptor that monkey-patches AmqpConnection.publish
+ * Interceptor that monkey-patches AmqpConnection.prototype.publish
  * to automatically add trace context to all messages.
  *
  * This allows existing code to continue using amqpConnection.publish()
  * normally, without any modifications.
  *
- * The interceptor is initialized automatically when the observability module
- * is loaded.
+ * The patch is applied to the prototype, so it works for ALL instances
+ * of AmqpConnection, regardless of where they are created.
  */
 @Injectable()
 export class RabbitMQPublishInterceptor implements OnModuleInit {
@@ -46,45 +44,55 @@ export class RabbitMQPublishInterceptor implements OnModuleInit {
 
   private readonly serviceName: string;
 
-  private originalPublish: AmqpConnectionLike['publish'] | null = null;
-
   constructor(
-    @Optional()
-    @Inject(AMQP_CONNECTION)
-    private readonly amqpConnection: AmqpConnectionLike | null,
     @Optional()
     @Inject(OBSERVABILITY_OPTIONS)
     private readonly options?: ObservabilityModuleOptions,
   ) {
-    this.serviceName = options?.serviceName || 'unknown-service';
+    this.serviceName = options?.serviceName || process.env.SERVICE_NAME || 'unknown-service';
   }
 
   onModuleInit(): void {
-    if (!this.amqpConnection) {
-      console.warn('[Observability] AmqpConnection not found, publish interceptor will not be applied');
-      return;
-    }
-
     this.interceptPublish();
-    console.log('[Observability] RabbitMQ publish interceptor applied successfully');
   }
 
   /**
-   * Apply monkey-patch to AmqpConnection.publish method
+   * Apply monkey-patch to AmqpConnection prototype
+   * This intercepts ALL publish() calls from all instances
    */
   private interceptPublish(): void {
-    if (!this.amqpConnection) return;
+    // Prevent applying the patch multiple times
+    if (isPatched) {
+      return;
+    }
 
-    // Store reference to original method
-    this.originalPublish = this.amqpConnection.publish.bind(this.amqpConnection);
+    // Try to dynamically load AmqpConnection
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const rabbitModule = require('@golevelup/nestjs-rabbitmq');
 
-    // References to use inside closure
+      AmqpConnectionClass = rabbitModule.AmqpConnection;
+    } catch {
+      console.warn(
+        '[Observability] @golevelup/nestjs-rabbitmq not found, RabbitMQ publish interceptor will not be applied',
+      );
+      return;
+    }
+
+    if (!AmqpConnectionClass) {
+      return;
+    }
+
+    // Store reference to original prototype method
+    originalPublish = AmqpConnectionClass.prototype.publish;
+
+    // References for use inside closure
     const tracer = this.tracer;
     const serviceName = this.serviceName;
-    const originalPublish = this.originalPublish;
 
-    // Replace publish method
-    (this.amqpConnection as AmqpConnectionLike).publish = async function <T>(
+    // Replace the publish method on the prototype
+    AmqpConnectionClass.prototype.publish = async function <T>(
+      this: unknown,
       exchange: string,
       routingKey: string,
       message: T,
@@ -113,12 +121,14 @@ export class RabbitMQPublishInterceptor implements OnModuleInit {
         propagation.inject(activeContext, headers);
 
         // Call original method with enriched headers
-        const result = await originalPublish(exchange, routingKey, message, {
+        // Use .call() to maintain correct 'this' context
+        const result = await originalPublish!.call(this, exchange, routingKey, message, {
           ...options,
           headers,
         });
 
         span.setStatus({ code: SpanStatusCode.OK });
+
         return result;
       } catch (error) {
         // Record error on span
@@ -140,14 +150,19 @@ export class RabbitMQPublishInterceptor implements OnModuleInit {
         span.end();
       }
     };
+
+    isPatched = true;
+    console.log('[Observability] RabbitMQ publish interceptor applied successfully (prototype patch)');
   }
 
   /**
    * Restore original method (useful for testing)
    */
-  restoreOriginal(): void {
-    if (this.originalPublish && this.amqpConnection) {
-      (this.amqpConnection as AmqpConnectionLike).publish = this.originalPublish;
+  static restoreOriginal(): void {
+    if (originalPublish && AmqpConnectionClass) {
+      AmqpConnectionClass.prototype.publish = originalPublish;
+      isPatched = false;
+      originalPublish = null;
     }
   }
 }
